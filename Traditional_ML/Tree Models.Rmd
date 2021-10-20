@@ -1,0 +1,66 @@
+---
+title: "Tree Models"
+author: "Tonnar Castellano"
+output: github_document
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r}
+library(randomForest)
+library(tidyverse)
+library(caret)
+library(ranger)
+```
+
+
+```{r}
+train <-read.csv(url("https://web.stanford.edu/~hastie/ElemStatLearn/datasets/vowel.train"))
+train <- train %>% select(-row.names)
+train$y <- factor(train$y)
+
+test <-read.csv(url("https://web.stanford.edu/~hastie/ElemStatLearn/datasets/vowel.test"))
+test$y <- factor(test$y)
+```
+
+
+```{r}
+default_model <-randomForest(y ~., data = train)
+```
+
+
+```{r}
+sample_size = floor(0.75*nrow(train))
+
+
+random_split = sample(seq_len(nrow(train)),size = sample_size)
+train = train[random_split,]
+cv <- trainControl(method = "cv", number = 5)
+```
+
+
+```{r}
+tunegrid <- expand.grid(.mtry = c(3,4,5), .min.node.size = c(1, 5, 10, 20, 40, 80), .splitrule = "gini")
+```
+
+
+```{r}
+tuned_model <- train(y~., data = train, trControl = cv,method = 'ranger', tuneGrid = tunegrid)
+
+tuned_model
+```
+
+```{r}
+predict <- predict(tuned_model, newdata = test)
+
+confusionMatrix(reference = test$y, data = predict)
+```
+
+Results
+```{r}
+#The final values used for the model were mtry = 3, splitrule = gini and min.node.size = 1.
+#This resulted in an accucary of 58%
+```
+
+
+

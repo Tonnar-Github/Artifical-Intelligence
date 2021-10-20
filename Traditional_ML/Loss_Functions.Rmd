@@ -1,0 +1,140 @@
+---
+title: "Loss Functions"
+author: "Tonnar Castellano"
+output: github_document
+editor_options:
+  chunk_output_type: inline
+---
+
+
+
+```{r}
+## load prostate data
+prostate <- 
+  read.table(url(
+    'https://web.stanford.edu/~hastie/ElemStatLearn/datasets/prostate.data'))
+
+## subset to training examples
+prostate_train <- subset(prostate, train==TRUE)
+
+## plot lcavol vs lpsa
+plot_psa_data <- function(dat=prostate_train) {
+  plot(dat$lpsa, dat$lcavol,
+       xlab="log Prostate Screening Antigen (psa)",
+       ylab="log Cancer Volume (lcavol)",
+       pch = 20)
+}
+plot_psa_data()
+```
+
+```{r}
+## L2 loss function
+L2_loss <- function(y, yhat)
+  (y-yhat)^2
+
+L1_loss <- function(y, yhat)
+  abs(y-yhat)
+
+## Tilted loss function
+tilted_loss_75 <- function(y, y_hat){
+  tau = .75
+  ifelse(y-y_hat > 0,tau*(y-y_hat), (tau-1)*(y-y_hat))
+}
+
+tilted_loss_25 <- function(y, y_hat){
+  tau = .25
+  ifelse(y-y_hat > 0,tau*(y-y_hat), (tau-1)*(y-y_hat))
+}
+
+## fit simple linear model using numerical optimization
+fit_lin <- function(y, x, loss, beta_init = c(-0.51, 0.75)) {
+  err <- function(beta)
+    mean(loss(y,  beta[1] + beta[2]*x))
+  beta <- optim(par = beta_init, fn = err)
+  return(beta)
+}
+
+## make predictions from linear model
+predict_lin <- function(x, beta)
+  beta[1] + beta[2]*x
+
+## fit linear model
+
+loss_functions = c(L2_loss, L1_loss, tilted_loss_75, tilted_loss_25)
+titles = c('L2_loss', 'L1_loss', 'tilted_loss .75', 'tilted_loss .25')
+i = 1
+for(loss in loss_functions){
+  lin_beta <- fit_lin(y=prostate_train$lcavol,
+                      x=prostate_train$lpsa,
+                      loss=loss)
+  
+  x_grid <- seq(min(prostate_train$lpsa),
+                max(prostate_train$lpsa),
+                length.out=100)
+  
+  lin_pred <- predict_lin(x=x_grid, beta=lin_beta$par)
+  
+  title = titles[i]
+  
+  ## plot data
+  plot_psa_data()
+  
+  ## plot predictions
+  lines(x=x_grid, y=lin_pred, col='blue', lwd = 1)
+  legend("topleft", legend = title,
+       col = c("blue"), lty = 1:2, cex = 0.8)
+  i = i + 1
+}
+
+```
+
+
+Write functions to fit and predict from a simple nonlinear model with three parameters defined by 'beta[1] + beta[2]*exp(-beta[3]*x)'. Hint: make copies of 'fit_lin' and 'predict_lin' and modify them to fit the nonlinear model. Use c(-1.0, 0.0, -0.3) as 'beta_init'.
+```{r}
+## fit non linear model using numerical optimization
+fit_lin <- function(y, x, loss, beta_init = c(-1.0, 0.0, -0.3)) {
+  err <- function(beta)
+    mean(loss(y, beta[1] + beta[2]*exp(-beta[3]*x)))
+  beta <- optim(par = beta_init, fn = err)
+  return(beta)
+}
+
+## make predictions from linear model
+predict_lin <- function(x, beta)
+  beta[1] + beta[2]*exp(-beta[3]*x)
+
+lin_beta <- fit_lin(y=prostate_train$lcavol,
+                    x=prostate_train$lpsa,
+                    loss)
+
+loss_functions = c(L2_loss, L1_loss, tilted_loss_75, tilted_loss_25)
+titles = c('L2_loss', 'L1_loss', 'tilted_loss .75', 'tilted_loss .25')
+i = 1
+for(loss in loss_functions){
+  lin_beta <- fit_lin(y=prostate_train$lcavol,
+                      x=prostate_train$lpsa,
+                      loss=loss)
+  
+  x_grid <- seq(min(prostate_train$lpsa),
+                max(prostate_train$lpsa),
+                length.out=100)
+  
+  lin_pred <- predict_lin(x=x_grid, beta=lin_beta$par)
+  
+  title = titles[i]
+  
+  ## plot data
+  plot_psa_data()
+  
+  ## plot predictions
+  lines(x=x_grid, y=lin_pred, col='blue', lwd = 1)
+  legend("topleft", legend = title,
+       col = c("blue"), lty = 1:2, cex = 0.8)
+  i = i + 1
+}
+```
+
+
+
+
+

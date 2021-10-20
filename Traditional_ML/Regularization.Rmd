@@ -1,0 +1,95 @@
+---
+title: "Regularization"
+author: "Tonnar Castellano"
+output: github_document
+editor_options:
+  chunk_output_type: inline
+---
+
+
+
+```{r}
+library(tidyverse)
+library(broom)
+library(glmnet)
+```
+
+
+```{r}
+prostate <- 
+  read.table(url(
+    'https://web.stanford.edu/~hastie/ElemStatLearn/datasets/prostate.data'))
+## subset to training examples
+```
+
+
+Use the cor function to reproduce the correlations listed in HTF Table 3.1, page 50.
+```{r}
+prostate_corr <- subset(prostate)
+cor(as.matrix(prostate_corr))
+```
+
+Treat lcavol as the outcome, and use all other variables in the data set as predictors.
+With the training subset of the prostate data, train a least-squares regression model with all predictors using the lm function.
+```{r}
+prostate_train <- subset(prostate,train == TRUE)
+l2_model <-lm(lcavol ~. ,prostate_train[,-length(prostate_train)])
+```
+
+Use the testing subset to compute the test error (average squared-error loss) using the fitted least-squares regression model.
+```{r}
+prostate_test <- subset(prostate, train == FALSE)
+mean((prostate_test$lcavol - predict.lm(l2_model, prostate_test[,-length(prostate_test)]))^2)
+```
+
+Train a ridge regression model using the glmnet function, and tune the value of lambda (i.e., use guess and check to find the value of lambda that approximately minimizes the test error).
+```{r}
+lambdas <- seq(1, 0, by =-.05)
+x <- prostate_train %>% select(-lcavol,-train) %>% data.matrix
+y_hat <- prostate_train$lcavol
+predict_x <-  prostate_test %>% select(-lcavol,-train) %>% data.matrix
+```
+
+
+```{r}
+ridge_model <- cv.glmnet(y = y_hat, x= x, lambda = lambdas, alpha = 0)
+best_lambda <- ridge_model$lambda.1se
+
+best_lambda 
+```
+
+
+```{r}
+test_error <- rep(NA,length(lambdas))
+i = 1
+for(lambda in lambdas){
+  test_error[i] <- mean((prostate_test$lcavol - predict(object = ridge_model, s = lambda, newx = predict_x))^2)
+  i = i + 1
+}
+
+test_error <- data.frame(lambda = lambdas, MSE = test_error)
+```
+
+Create a figure that shows the training and test error associated with ridge regression as a function of lambda
+```{r}
+plot(ridge_model, ylab= "MSE")
+test_error %>% ggplot()+geom_point(aes(x=lambdas,y=MSE)) 
+```
+
+Create a path diagram of the ridge regression analysis, similar to HTF Figure 3.8
+```{r}
+plot(x=range(ridge_model$lambda),
+     y=range(as.matrix(ridge_model$glmnet.fit$beta)),
+     type='n',
+     xlab=expression(lambda),
+     ylab='Coefficients')
+for(i in 1:nrow(ridge_model$glmnet.fit$beta)) {
+  points(x=ridge_model$lambda, y=ridge_model$glmnet.fit$betaa[i,], pch=19, col='#00000055')
+  lines(x=ridge_model$lambda, y=ridge_model$glmnet.fit$beta[i,], col='#00000055')
+}
+text(x=0, y=ridge_model$glmnet.fit$beta[,ncol(ridge_model$glmnet.fit$beta)], 
+     labels=rownames(ridge_model$glmnet.fit$beta),
+     xpd=NA, pos=4, srt=45)
+abline(h=0, lty=3, lwd=2)
+```
+
